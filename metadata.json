@@ -1,0 +1,5 @@
+{
+  "name": "MADAGASCAR DESIGNER – Votre rêve en réalité",
+  "description": "Plateforme d’architecture haut de gamme et immobilier à Madagascar : Architecture clé en main, modélisation 3D, bureau d’études, aménagement urbain et paysagisme.",
+  "requestFramePermissions": ["geolocation", "microphone"]
+}

@@ -1,0 +1,135 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Représente un utilisateur de l'application.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "description": "ID unique de l'utilisateur Firebase." },
+        "email": { "type": "string", "format": "email", "description": "Email de l'utilisateur." },
+        "displayName": { "type": "string", "description": "Nom complet." },
+        "photoURL": { "type": "string", "description": "URL de la photo de profil." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Date de création." }
+      },
+      "required": ["uid", "email", "createdAt"]
+    },
+    "Lead": {
+      "title": "Lead",
+      "description": "Représente une demande de devis ou un contact.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID de l'utilisateur ayant fait la demande." },
+        "name": { "type": "string", "description": "Nom du prospect." },
+        "email": { "type": "string", "format": "email", "description": "Email du prospect." },
+        "message": { "type": "string", "description": "Message du prospect." },
+        "attachmentUrl": { "type": "string", "description": "URL de la pièce jointe (croquis, inspiration)." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Date de la demande." }
+      },
+      "required": ["userId", "name", "email", "createdAt"]
+    },
+    "Quote": {
+      "title": "Quote",
+      "description": "Représente un devis généré par l'utilisateur.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string", "description": "ID de l'utilisateur (optionnel)." },
+        "projectType": { "type": "string", "description": "Type de projet." },
+        "surface": { "type": "number", "description": "Surface en m2." },
+        "complexity": { "type": "string", "description": "Niveau de complexité." },
+        "selectedOptions": { "type": "array", "items": { "type": "string" }, "description": "Options sélectionnées." },
+        "totalPrice": { "type": "number", "description": "Prix total estimé." },
+        "status": { "type": "string", "description": "Statut du devis." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Date de création." },
+        "clientInfo": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "email": { "type": "string", "format": "email" },
+            "phone": { "type": "string" },
+            "message": { "type": "string" }
+          },
+          "required": ["name", "email", "phone"]
+        }
+      },
+      "required": ["projectType", "surface", "complexity", "totalPrice", "status", "createdAt", "clientInfo"]
+    },
+    "PortfolioItem": {
+      "title": "PortfolioItem",
+      "description": "Représente un projet dans le portfolio.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string", "description": "Titre du projet." },
+        "category": { "type": "string", "description": "Catégorie du projet (architecture, interieur, urbain, paysage)." },
+        "image": { "type": "string", "description": "URL de l'image du projet." },
+        "location": { "type": "string", "description": "Lieu du projet." },
+        "year": { "type": "string", "description": "Année de réalisation." },
+        "description": { "type": "string", "description": "Description détaillée du projet." },
+        "gallery": { "type": "array", "items": { "type": "string" }, "description": "Images de rendus du projet." },
+        "plans": { "type": "array", "items": { "type": "string" }, "description": "Images des plans du projet." },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Date d'ajout." }
+      },
+      "required": ["title", "category", "image", "location", "year", "createdAt"]
+    },
+    "SiteConfig": {
+      "title": "SiteConfig",
+      "description": "Configuration globale du site (pages, images, etc.).",
+      "type": "object",
+      "properties": {
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "type": "string" },
+              "name": { "type": "string" },
+              "path": { "type": "string" },
+              "visible": { "type": "boolean" },
+              "order": { "type": "number" }
+            }
+          }
+        },
+        "imageOverrides": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string" },
+              "fit": { "type": "string" },
+              "zoom": { "type": "number" },
+              "position": {
+                "type": "object",
+                "properties": {
+                  "x": { "type": "number" },
+                  "y": { "type": "number" }
+                }
+              }
+            }
+          }
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "User" },
+      "description": "Collection des utilisateurs."
+    },
+    "/leads/{leadId}": {
+      "schema": { "$ref": "Lead" },
+      "description": "Collection des demandes de contact/devis."
+    },
+    "/quotes/{quoteId}": {
+      "schema": { "$ref": "Quote" },
+      "description": "Collection des devis générés."
+    },
+    "/portfolio/{itemId}": {
+      "schema": { "$ref": "PortfolioItem" },
+      "description": "Collection des projets du portfolio."
+    },
+    "/config/site": {
+      "schema": { "$ref": "SiteConfig" },
+      "description": "Configuration globale du site."
+    }
+  }
+}

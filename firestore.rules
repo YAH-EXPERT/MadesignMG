@@ -1,0 +1,195 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    //
+    // Collection: users
+    // Document ID: userId (Firebase UID)
+    // Fields:
+    //   - uid: string (required) - Firebase UID
+    //   - email: string (required, email format) - User email
+    //   - displayName: string (optional) - User name
+    //   - photoURL: string (optional, URL format) - User photo
+    //   - createdAt: timestamp (required) - Creation date
+    //
+    // Collection: leads
+    // Document ID: leadId (Auto-generated)
+    // Fields:
+    //   - userId: string (required) - ID of the user who created the lead
+    //   - name: string (required, < 100 chars) - Prospect name
+    //   - email: string (required, email format) - Prospect email
+    //   - message: string (required, < 2000 chars) - Message
+    //   - createdAt: timestamp (required) - Creation date
+    //
+    // Collection: quotes
+    // Document ID: quoteId (Auto-generated)
+    // Fields:
+    //   - userId: string (optional) - ID of the user who created the quote
+    //   - projectType: string (required) - Type of project
+    //   - surface: number (required) - Surface in m2
+    //   - complexity: string (required) - Level of complexity
+    //   - selectedOptions: list (required) - Selected options
+    //   - totalPrice: number (required) - Total estimated price
+    //   - status: string (required) - Quote status
+    //   - createdAt: timestamp (required) - Creation date
+    //   - clientInfo: map (required) - Client information
+    //
+    // Collection: portfolio
+    // Document ID: itemId (Auto-generated)
+    // Fields:
+    //   - title: string (required)
+    //   - category: string (required)
+    //   - image: string (required, URL)
+    //   - location: string (required)
+    //   - year: string (required)
+    //   - description: string (optional)
+    //   - createdAt: timestamp (required)
+    //
+    // Collection: config
+    // Document ID: site
+    // Fields:
+    //   - pages: list (optional)
+    //   - imageOverrides: map (optional)
+    //   - updatedAt: timestamp (optional)
+    //
+    // ===============================================================
+
+    // ===============================================================
+    // Helper Functions
+    // ===============================================================
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isValidEmail(email) {
+      return email is string && email.matches("^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$");
+    }
+
+    function isValidUrl(url) {
+      return url is string && (url.matches("^https://.*") || url.matches("^http://.*") || url.matches("^data:image/.*"));
+    }
+
+    function hasRequiredFields(fields) {
+      return request.resource.data.keys().hasAll(fields);
+    }
+
+    function hasOnlyAllowedFields(fields) {
+      return request.resource.data.keys().hasOnly(fields);
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+          (request.auth.token.email == "madesign.architect3d@gmail.com" && request.auth.token.email_verified == true));
+    }
+
+    function isValidQuote(data) {
+      return hasRequiredFields(['projectType', 'surface', 'complexity', 'selectedOptions', 'totalPrice', 'status', 'createdAt', 'clientInfo']) &&
+             hasOnlyAllowedFields(['userId', 'projectType', 'surface', 'complexity', 'selectedOptions', 'totalPrice', 'status', 'createdAt', 'clientInfo']) &&
+             data.projectType is string &&
+             data.surface is number &&
+             data.complexity in ['standard', 'premium', 'luxe'] &&
+             data.selectedOptions is list &&
+             data.totalPrice is number &&
+             data.status == 'pending' &&
+             data.clientInfo is map &&
+             data.clientInfo.keys().hasAll(['name', 'email', 'phone']) &&
+             data.clientInfo.name is string && data.clientInfo.name.size() < 100 &&
+             isValidEmail(data.clientInfo.email) &&
+             data.clientInfo.phone is string && data.clientInfo.phone.size() < 30;
+    }
+
+    function isValidPortfolioItem(data, isCreate) {
+      let requiredFields = isCreate ? ['title', 'category', 'image', 'location', 'year', 'createdAt'] : ['title', 'category', 'image', 'location', 'year'];
+      
+      return hasRequiredFields(requiredFields) &&
+             hasOnlyAllowedFields(['title', 'category', 'image', 'location', 'year', 'description', 'gallery', 'plans', 'createdAt', 'updatedAt']) &&
+             data.title is string && data.title.size() < 200 &&
+             data.category in ['architecture', 'interieur', 'urbain', 'paysage'] &&
+             isValidUrl(data.image) &&
+             data.location is string &&
+             data.year is string &&
+             (!('description' in data) || (data.description is string && data.description.size() < 2000)) &&
+             (!('gallery' in data) || data.gallery is list) &&
+             (!('plans' in data) || data.plans is list) &&
+             (!('createdAt' in data) || data.createdAt is timestamp);
+    }
+
+    // ===============================================================
+    // Collection Rules
+    // ===============================================================
+
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && 
+                      hasRequiredFields(['uid', 'email', 'createdAt']) &&
+                      hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'createdAt', 'role']) &&
+                      request.resource.data.uid == userId &&
+                      isValidEmail(request.resource.data.email) &&
+                      (request.resource.data.photoURL == null || isValidUrl(request.resource.data.photoURL)) &&
+                      (!('role' in request.resource.data) || request.resource.data.role == 'client');
+      allow update: if (isOwner(userId) &&
+                      hasOnlyAllowedFields(['uid', 'email', 'displayName', 'photoURL', 'createdAt', 'role']) &&
+                      request.resource.data.uid == userId &&
+                      request.resource.data.createdAt == resource.data.createdAt &&
+                      request.resource.data.role == resource.data.role &&
+                      isValidEmail(request.resource.data.email) &&
+                      (request.resource.data.photoURL == null || isValidUrl(request.resource.data.photoURL))) ||
+                      isAdmin();
+    }
+
+    match /leads/{leadId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if hasRequiredFields(['name', 'email', 'message', 'createdAt']) &&
+                      hasOnlyAllowedFields(['userId', 'name', 'email', 'message', 'attachmentUrl', 'status', 'createdAt']) &&
+                      (request.resource.data.userId == null || request.resource.data.userId == request.auth.uid) &&
+                      request.resource.data.name is string && request.resource.data.name.size() < 100 &&
+                      isValidEmail(request.resource.data.email) &&
+                      request.resource.data.message is string && request.resource.data.message.size() < 2000 &&
+                      (request.resource.data.attachmentUrl == null || isValidUrl(request.resource.data.attachmentUrl));
+      allow update, delete: if isAdmin();
+    }
+
+    match /quotes/{quoteId} {
+      allow read: if isAuthenticated() && (request.auth.uid == resource.data.userId || isAdmin());
+      allow create: if isValidQuote(request.resource.data) &&
+                      (request.resource.data.userId == null || request.resource.data.userId == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    match /portfolio/{itemId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /realestates/{itemId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /config/{documentId} {
+      allow read: if true;
+      allow write: if true;
+    }
+
+    match /projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow write: if true;
+    }
+
+    match /chatbot_sessions/{sessionId} {
+      allow read, write: if true;
+    }
+
+    match /visitors/{visitorId} {
+      allow read: if isAdmin();
+      allow create, update: if true; // Turbo Engine Analytics
+    }
+  }
+}
